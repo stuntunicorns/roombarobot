@@ -1,0 +1,251 @@
+<!--
+########################################################################                                                                 
+# Program Name: Browser_Client_Coder.html                                     
+# ================================     
+# This code is for controlling a robot by a web browser using web sockets                            
+# http://www.dexterindustries.com/                                                                
+# History
+# ------------------------------------------------
+# Author     Comments
+# Joshwa     Initial Authoring
+#                                                                  
+# These files have been made available online through a Creative Commons Attribution-ShareAlike 3.0  license.
+# (http://creativecommons.org/licenses/by-sa/3.0/)           
+# ===============================
+# This Code was modified by stuntunicorns for browser controlled roombabot
+# Modificetions
+# ------------------------------------------------
+# 1. Eliminated IP entry box (since we setup a static ip / are running the client file on the server)
+# 2. Added iframe to display video from motion on the same static ip port 8081   
+#
+########################################################################
+-->
+<!-- This code implements the web socket connection between client(web page on a Computer) and a server(raspberry pi) -->
+<!-- It sends data from web page using buttons and Keyboard presses to control the BrickPi robot -->
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bot</title>  
+<script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+</head>
+<body bgcolor="#000000">
+<p style= "position: absolute; left:100px; top:10px; ">	
+<iframe src="http://YOURIPADDRESS:8081" width=640px height=480px  frameborder="0"> <!--Replace "YOURIPADDRESS" with your static IP address-->
+</iframe></p>
+<p>            
+<input id="touch" style="color:#ffffff; background-color:#60726a; opacity: 0.7; border: none; height: 80px; width: 310px; position: absolute; left: 845px; top: 20px" type="button" value="Connect" onclick="setup2()" />
+</p>
+<p>             
+<input id="touch" style="color:#ffffff; background-color:#08ad17; opacity: 0.7; border: none; height: 100px; width: 100px; position: absolute; left: 950px; top: 110px" type="button" value="Foward" onclick="accelerate(); " />
+</p>
+<p>                                        
+<input id="touch" style="color:#000000; background-color:#f2f20f; opacity: 0.7; border: none; height: 100px; width: 100px; position: absolute; left: 845px; top: 215px" type="button" value="Left" onclick="steer_left(); " />
+</p>
+<p>                                        
+<input id="touch" style="color:#ffffff; background-color:#ff0000; opacity: 0.7; border: none; height: 100px; width: 100px; position: absolute; left: 950px; top: 215px" type="button" value="Stop" onclick="stop(); " />
+</p>
+<p>                                        
+<input id="touch" style="color:#000000; background-color:#f2f20f; opacity: 0.7; border: none; height: 100px; width: 100px; position: absolute; left: 1055px; top: 215px" type="button" value="Right" onclick="steer_right(); " />
+</p>
+<p>                                        
+<input id="touch" style="color:#ffffff; background-color:#08ad17; opacity: 0.7; border: none; height: 100px; width: 100px; position: absolute; left: 950px; top: 320px" type="button" value="Reverse" onclick="reverse(); " />
+</p>
+<p>
+<input id="touch" style="color:#ffffff; background-color:#60726a; opacity: 0.7; border: none; height: 80px; width: 310px; position: absolute; left: 845px; top: 430px" type="button" value="Shutdown" onclick="shutdown(); " />
+</p>
+</body>	
+<div id="send">
+<div id="output"></div>
+<script>
+var up;
+var down;
+var left;
+var right;
+var brakes;
+var shutdown;
+
+// defines a variable that controls the forward movement
+function accelerate()       
+{
+	up = "u";               // when up == "u" the bot moves forward 
+	down = "aaa";left = "aaa";right = "aaa";brakes = "aaa";shutdown = "aaa";       // When up button is pressed other buttons(variables) should be turned off.
+    setup2();        		// Goes to websocket connection function
+}  
+
+// defines a variable that controls the backward movement
+function reverse()
+{
+	down = "d";
+	up = "aaa";left = "aaa";right = "aaa";brakes = "aaa";shutdown = "aaa";
+	setup2();
+}
+
+// defines a variable that controls the left movement
+function steer_left()
+{
+	left = "l";
+	up = "aaa";down = "aaa";right = "aaa";brakes = "aaa";shutdown = "aaa";
+	setup2();
+}
+
+// defines a variable that controls the right movement
+function steer_right()
+{
+	right = "r";
+	up = "aaa";down = "aaa";left = "aaa";brakes = "aaa";shutdown = "aaa";
+	setup2();
+}
+
+// defines a variable that stops the robot
+function stop()       
+{
+	up = "aaa";down = "aaa";left = "aaa";right = "aaa";brakes = "b";shutdown = "aaa";
+	setup2();
+}		 
+// defines a variable that shuts down the robot
+function shutdown()
+{
+	shutdown = "p";
+	up = "aaa";down = "aaa";left = "aaa";right = "aaa";brakes = "b";
+	setup2();
+}
+// Creates the websockets connection 
+function setup2()         
+{         			
+	var host =  "ws://YOURIPADDRESS:9093/ws"; 	// Replace YOURIPADDRESS with your static IP address
+	var socket = new WebSocket(host);
+	var $txt = $("#data");
+	var $btnSend = $("#sendtext");
+	$txt.focus();
+	
+	// event handlers for UI
+	$btnSend.on('click',function()
+	{
+		var text = $txt.val();
+		if(text == "")
+		{
+			return;
+		}
+		$txt.val("");
+	});  
+	$txt
+	.keypress(function(evt)
+	{
+		if(evt.which == 13)
+		{
+			$btnSend.click();
+		}
+	});
+
+	// event handlers for websocket
+	if(socket)
+	{
+		var count =1;
+		socket.onopen = function()
+		{
+			count = 0;
+			arrows();     // function for detecting keyboard presses
+			buttons();    // function for detecting the button press on webpage
+		}
+		//Send the button pressed backed to the Raspberry Pi
+		function buttons()
+		{	
+			if(shutdown== "p")
+			{
+				socket.send("p");
+			}
+			if(up== "u")
+			{
+				socket.send("u");
+			}	
+
+			if(down== "d")
+			{
+				socket.send("d");
+			}
+
+			if(left== "l")
+			{
+				socket.send("l");
+			}	
+
+			if(right== "r")
+			{
+				socket.send("r");
+			}	
+
+			if(brakes== "b")
+			{
+				socket.send("b");
+			}
+			
+			
+		}
+		function arrows()
+		{
+			document.onkeyup = KeyCheck;       
+			function KeyCheck()
+			{
+				var KeyID = event.keyCode;
+				switch(KeyID)
+				{
+				case 27:
+				socket.send("p");
+				break;
+				case 16:
+				socket.send("b");
+				break; 
+				case 17:
+				socket.send("b");
+				break;
+				case 37:
+				socket.send("l");
+				break;
+				case 38:
+				socket.send("u");
+				break;
+				case 39:
+				socket.send("r");
+				break;
+				case 40:
+				socket.send("d");
+				break;
+				}
+			}
+		}
+		socket.onmessage = function(msg)
+		{
+			showServerResponse(msg.data);
+		}
+		socket.onclose = function()
+		{
+			//alert("connection closed....");
+			showServerResponse("The connection has been closed.");
+		}
+	}
+	else
+	{
+		console.log("invalid socket");
+	}
+	function showServerResponse(txt)
+	{
+		var p = document.createElement('p');
+		p.innerHTML = txt;
+		document.getElementById('output').appendChild(p); 
+	}	
+}   
+
+</script>
+</html>
+<script>   
+
+jQuery(function($)
+{
+  if (!("WebSocket" in window)) 
+  {
+    alert("Your browser does not support web sockets");
+  }
+});
+
+</script>
